@@ -27,4 +27,4 @@ classifiers = [
 ]
 
 [project.scripts]
-spell = "pydep_tool:pydep"
+pydep = "pydep_tool:pydep"
