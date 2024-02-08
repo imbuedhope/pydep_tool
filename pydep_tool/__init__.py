@@ -30,7 +30,6 @@ def get_imports_from_file(file_path: str | os.PathLike):
                     else:
                         yield str(node.module)
 
-
 def get_imports_in_modules_at(directory_path: str | os.PathLike) -> Set[str]:
     """
     returns a set of modules that are imported any modules that are present in the folder specified
@@ -43,54 +42,45 @@ def get_imports_in_modules_at(directory_path: str | os.PathLike) -> Set[str]:
     for subdir, dirs, files in os.walk(directory_path):
         if _root_folder:
             _root_folder = False
+
+            # any .py files in the root folder are tracked
+            for file in files:
+                if file.endswith('.py'):
+                    file_path = os.path.join(subdir, file)
+
+                    imports.update(get_imports_from_file(file_path))
             continue
 
-        # Check if the current subdir is a Python package
+        # check if the current subdir is a Python package
         if _is_package(subdir):
             for file in files:
                 if file.endswith('.py'):
                     file_path = os.path.join(subdir, file)
 
                     imports.update(get_imports_from_file(file_path))
-            # Remove non-package directories from further traversal
+            # remove non-package directories from further traversal
             dirs[:] = [d for d in dirs if _is_package(os.path.join(subdir, d))]
         else:
-            # Skip non-package directories
+            # skip non-package directories
             dirs.clear()
 
     return imports
 
 @click.group()
-def spell():
+def pydep():
     """
-    A collection misc cli tools that might be useful
+    A simple python repository dependency management tool.
     """
 
-_mode_to_op = {
-    "compat" : "~=",
-    "gt" : ">=",
-    "eq" : "=="
-}
-
-@spell.command()
+@pydep.command()
 @click.argument(
     "PATH", default='.',
     type = click.Path(exists=True, resolve_path=True)
 )
-@click.option(
-    "--mode", "-m", type=click.Choice(['compat','gt','eq']), default='eq',
-    help="sets dynamic versioning mode"
-)
-@click.option(
-    "--update", "-u", is_flag=True,
-    help="detect and update config files instead of printing to stdout"
-)
-def pydeps(path, mode, update):
+def list(path):
     """
-    Scans top level modules in any subdirectories of the folder the command is run to detect
-    dependencies based on imports in the code.
-
-    This command was inspired by `pipreqs` but is implemented differently.
+    Scans the PATH specified to detect dependencies based on imports in python code and the active
+    python environment.
     """
     imported_resources = get_imports_in_modules_at(path)
 
@@ -105,15 +95,15 @@ def pydeps(path, mode, update):
     # generate a set of dists in use
     mod_to_dist : Dict[str, md.Distribution] = {}
     for dist in md.distributions():
-        # we find top level mods like this because sometimes a python package includes more than
-        # one top level module (setuptools for example) and there's no standard way to find which
-        # modules are installed by a python package (yay for python)
-        top_level_mods = [
+        # this code scans the list of distribured files to find modules manually instead of
+        # depending on python's built-in mechanism because the built-in mechanism does not work for
+        # packages that have multiple top level modules such as `setuptools`
+        mods = [
             '.'.join(fs[0:-1]) for f in dist.files
             if (fs := str(f).split('/'))[-1] == "__init__.py"
         ]
 
-        mod_to_dist.update({mod : dist for mod in top_level_mods})
+        mod_to_dist.update({mod : dist for mod in mods})
 
     used_dists: Set[md.Distribution] = set()
     for res in non_stdlib_resources:
@@ -127,12 +117,27 @@ def pydeps(path, mode, update):
                 f"unable to find the package associated with {res} in the current env", err=True
             )
 
-    if not update:
-        # print to stdout
-        op = _mode_to_op[mode]
-        for dist in used_dists:
-            click.echo(f"{dist.name} {op} {dist.version}")
-    else:
-        # detect and update the appropriate file instead
-        click.echo("This feature is a WIP")
-        pass
+    for dist in used_dists:
+        click.echo(f"{dist.name} == {dist.version}")
+
+@pydep.command()
+@click.argument(
+    "PATH", default='.',
+    type = click.Path(exists=True, resolve_path=True)
+)
+@click.option(
+    "--mode", "-m", type=click.Choice(['compat','gt','eq']), default='eq',
+    help="sets dynamic versioning mode"
+)
+def update(path, mode):
+    """
+    Updates `requirements.txt`, `setup.cfg`, and `pyproject.toml` files based on the dependencies
+    that are found in the project.
+    """
+
+    _mode_to_op = {
+        "compat" : "~=",
+        "gt" : ">=",
+        "eq" : "=="
+    }
+
