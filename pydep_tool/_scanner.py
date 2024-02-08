@@ -26,6 +26,9 @@ def get_imports_from_file(file_path: str | os.PathLike):
             for name in node.names:
                 yield str(name.name)
         elif isinstance(node, ast.ImportFrom):
+            if node.level != 0:
+                continue
+
             if node.module:
                 for alias in node.names:
                     if alias.name != '*':
