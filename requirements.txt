@@ -1,3 +1,0 @@
-google-cloud-storage == 2.14.0
-SQLAlchemy == 2.0.25
-click == 8.1.7
