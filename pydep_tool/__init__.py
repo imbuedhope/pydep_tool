@@ -1,12 +1,14 @@
 """
 """
 
-import click
 import importlib.metadata as md
-import sys
-from typing import Dict, Set
+from os.path import relpath
+from typing import Dict, List, Set
 
-from ._scanner import get_imports_in_modules_at
+import click
+from tabulate import tabulate
+
+from ._scanner import get_res_info_by_file
 
 __all__ = ['pydep']
 
@@ -26,43 +28,41 @@ def list(path):
     Scans the PATH specified to detect dependencies based on imports in python code and the active
     python environment.
     """
-    imported_resources = get_imports_in_modules_at(path)
+    res_info = get_res_info_by_file(path)
 
-    non_stdlib_resources: Set[str] = set()
-    for res in imported_resources:
-        # if the res is a part of sys.stdlib_module_names then it's a builtin
-        for mod in sys.stdlib_module_names:
-            if res.startswith(mod) and (len(res) == len(mod) or res.startswith(mod+'.')): break
+    missing_resources: Set[str] = set()
+    dist_info : Dict[md.Distribution, List[Set[str], Set[str]]]= {}
+    # convert res_info into a table of package, version, used in
+    # skip stdlib and unknowns
+    for file, res_ in res_info.items():
+        for res_name, res in res_.items():
+            if res['in_stdlib']:
+                pass
+            elif not res['dist']:
+                missing_resources.add(res_name)
+            else:
+                if res['dist'] in dist_info:
+                    dist_info[res['dist']][0].add(res_name)
+                    dist_info[res['dist']][1].add(relpath(file, path))
+                else:
+                    dist_info[res['dist']] = [set([res_name]), set([relpath(file, path)])]
+
+    def _fmt_file_set(files: Set[str]):
+
+        if len(files) > 1:
+            return '\n'.join(files)
+        elif len(files) == 0:
+            return ''
         else:
-            non_stdlib_resources.add(res)
+            return next(iter(files))
 
-    # generate a set of dists in use
-    mod_to_dist : Dict[str, md.Distribution] = {}
-    for dist in md.distributions():
-        # this code scans the list of distribured files to find modules manually instead of
-        # depending on python's built-in mechanism because the built-in mechanism does not work for
-        # packages that have multiple top level modules such as `setuptools`
-        mods = [
-            '.'.join(fs[0:-1]) for f in dist.files
-            if (fs := str(f).split('/'))[-1] == "__init__.py"
-        ]
+    # convert to something tabulate works with
+    info = [
+        (dist.name, dist.version, _fmt_file_set(info[1]))
+        for dist, info in sorted(dist_info.items(), key=lambda x: x[0].name.lower())
+    ]
 
-        mod_to_dist.update({mod : dist for mod in mods})
-
-    used_dists: Set[md.Distribution] = set()
-    for res in non_stdlib_resources:
-        # see if we can find the resource that's being imported in mod_to_dist
-        for mod in mod_to_dist:
-            if res.startswith(mod) and (len(res) == len(mod) or res.startswith(mod+'.')):
-                used_dists.add(mod_to_dist[mod])
-                break
-        else:
-            click.echo(
-                f"unable to find the package associated with {res} in the current env", err=True
-            )
-
-    for dist in used_dists:
-        click.echo(f"{dist.name} == {dist.version}")
+    click.echo(tabulate(info, ["package", "version", "referenced in"], tablefmt="simple_grid"))
 
 @pydep.command()
 @click.argument(
