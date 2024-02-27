@@ -138,7 +138,7 @@ def update(path: str, mode: str):
     if isfile((fpath := path + '/requirements.txt')):
         # there is a requirements.txt file so we update it with the latest
         with open(fpath, 'w') as f:
-            f.writelines(deps)
+            f.writelines(d+'\n' for d in deps)
 
     if isfile((fpath := path + '/setup.cfg')):
         config = configparser.ConfigParser()
