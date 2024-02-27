@@ -25,8 +25,12 @@ def pydep():
 )
 def list(path):
     """
-    Scans the PATH specified to detect dependencies based on imports in python code and the active
+    Scans the PATH specified to detects dependencies based on imports in python code and the active
     python environment.
+
+    NOTE: This tool does not have knowledge of python packages that are not installed locally.
+    Ensuring that the code at the specified PATH can be run / imported should generally resolve any
+    related issues.
     """
     res_info = get_res_info_by_file(path)
 
@@ -56,11 +60,24 @@ def list(path):
         else:
             return next(iter(files))
 
-    # convert to something tabulate works with
-    info = [
+    if missing_resources:
+        click.echo(
+            f"unable to find packages associated with one or more imports: {missing_resources}\n",
+            err=True
+        )
+
+    table = prettytable.PrettyTable()
+    table.set_style(prettytable.PLAIN_COLUMNS)
+    table.align = 'l'
+    table.field_names = ["package", "version", "referenced in"]
+    table.sortby = "package"
+
+    table.add_rows(
         (dist.name, dist.version, _fmt_file_set(info[1]))
         for dist, info in sorted(dist_info.items(), key=lambda x: x[0].name.lower())
-    ]
+    )
+
+    click.echo(table)
 
     click.echo(tabulate(info, ["package", "version", "referenced in"], tablefmt="simple_grid"))
 
