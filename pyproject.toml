@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pydep-tool"
+version = "0.1"
+dependencies = [
+    'click==8.1.7',
+    'more-itertools==10.2.0',
+    'prettytable==3.10.0',
+    'tomlkit==0.12.3',
+]
+requires-python = ">=3.10"
+authors = [
+    {name = "Sriram R", email="sram@hey.com"}
+]
+maintainers = [
+    {name = "Sriram R", email="sram@hey.com"}
+]
+description = "Wares to perform depedency wizardry!"
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Private :: Do Not Upload",
+    "Environment :: Console",
+    "Topic :: Software Development :: Build Tools",
+    ""
+]
+
+[project.scripts]
+pydep = "pydep_tool:pydep"
