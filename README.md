@@ -12,8 +12,7 @@ actually depends on update dependencies.
 5. ???
 6. profit
 
-> NOTE: all the commands and subcommands support `--help`, `-h`, & `-?` which includes information
-> that may not be covered here.
+> NOTE: all the commands and subcommands support `--help`
 
 ## Requirements
 
