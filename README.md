@@ -2,7 +2,7 @@
 
 Installing this package will install the `pydep` command which is a group of commands that enables
 you to scan the code in your python repository to determine which packages (in your env) your code
-actually depends on update dependencies.
+actually depends on and to update dependencies tracked in the repo.
 
 ## How to use this tool
 
@@ -26,8 +26,8 @@ be met.
 3. tests and other standalone scripts must be in their own top level folders that are not modules
    1. you may implement modules inside those folders, but the top level folder not being a module
       is how this tool determines if a folder should be ignored when looking for dependencies
-4. the repo must has `requriements.txt`, `setup.cfg`, (inclusive) or `pyproject.toml` files at in
-   the root folder
+4. the repo must have `requriements.txt`, `setup.cfg`, or `pyproject.toml` files at in
+   the root folder for the update command to work
    1. while `setup.py` is (deprecated but) valid, this tool does not support in place modification
       of those files due to obvious reasons
 
