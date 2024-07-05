@@ -100,10 +100,11 @@ def get_dist(res: str) -> md.Distribution | None:
             # this code scans the list of distribured files to find modules manually instead of
             # depending on python's built-in mechanism because the built-in mechanism does not work for
             # packages that have multiple top level modules such as `setuptools`
-            mods = [
-                '.'.join(fs[0:-1]) for f in dist.files
-                if (fs := str(f).split('/'))[-1] == "__init__.py"
-            ]
+            mods = []
+            if dist.files:
+                for f in dist.files:
+                    if (fs := str(f).split('/'))[-1] == "__init__.py":
+                        mods.append('.'.join(fs[0:-1]))
 
             mod_to_dist.update({mod : dist for mod in mods})
         setattr(get_dist, 'mod_to_dist', mod_to_dist)
