@@ -38,9 +38,27 @@ are used (directly through imports) in the repository and which python source fi
 in. This command also lists any imports that could not be mapped to a package in the current
 enviornment.
 
+Imports are mapped to installed distributions using package files, standalone `.py` modules,
+compiled extension modules, and `top_level.txt` metadata when available. This includes `cv2`
+when an installed OpenCV distribution provides that module. An import such as
+`from flask import jsonify` is attributed to Flask through its `flask` package; `jsonify`
+does not need to be a separate module. Scanning does not import or execute these packages.
+
+Packages must be installed in the Python environment running `pydep` and provide distribution
+metadata. An importable system module without that metadata cannot be assigned a package name
+and version automatically.
+
 ## `pydep update`
 
 Updates any `requriements.txt`, `setup.cfg`, or `pyproject.toml` files found at the specified
 repository path (default `.`). The files must be formated as per their specific implementation
 guidelines; however, if the dependencies or install_requires field is missing in `pyproject.toml` or
 `setup.cfg` the update command will create them
+
+## Running tests
+
+With this project and its dependencies installed, run from the repository root:
+
+```sh
+python -m unittest discover -s tests -v
+```
