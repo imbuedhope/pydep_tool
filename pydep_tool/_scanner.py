@@ -6,6 +6,7 @@ and related things
 import ast
 from functools import lru_cache
 import importlib.metadata as md
+from importlib.machinery import EXTENSION_SUFFIXES
 import os
 import sys
 from typing import Dict, Set
@@ -97,14 +98,19 @@ def get_dist(res: str) -> md.Distribution | None:
     if not hasattr(get_dist, 'mod_to_dist'):
         mod_to_dist : Dict[str, md.Distribution] = {}
         for dist in md.distributions():
-            # this code scans the list of distribured files to find modules manually instead of
-            # depending on python's built-in mechanism because the built-in mechanism does not work for
-            # packages that have multiple top level modules such as `setuptools`
-            mods = []
-            if dist.files:
-                for f in dist.files:
-                    if (fs := str(f).split('/'))[-1] == "__init__.py":
-                        mods.append('.'.join(fs[0:-1]))
+            # Keep file-level mappings for distributions with multiple packages, and include
+            # standalone Python and extension modules such as cv2. No package code is imported.
+            mods = (dist.read_text('top_level.txt') or '').split()
+            for f in dist.files or ():
+                parts = str(f).split('/')
+                for suffix in ('.py', *EXTENSION_SUFFIXES):
+                    if parts[-1].endswith(suffix):
+                        parts[-1] = parts[-1][:-len(suffix)]
+                        if parts[-1] == '__init__':
+                            parts.pop()
+                        if parts and all(part.isidentifier() for part in parts):
+                            mods.append('.'.join(parts))
+                        break
 
             mod_to_dist.update({mod : dist for mod in mods})
         setattr(get_dist, 'mod_to_dist', mod_to_dist)
