@@ -30,6 +30,13 @@ class DistributionTestCase(unittest.TestCase):
         if files is not None:
             with (info / 'RECORD').open('w', newline='', encoding='utf-8') as record:
                 csv.writer(record).writerows((file, '', '') for file in files)
+            # Newer importlib.metadata versions filter out RECORD entries that do not
+            # exist. Materialize the fixture without following external script paths.
+            for file in files:
+                path = (self.root / file).resolve()
+                if path.is_relative_to(self.root):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.touch(exist_ok=True)
         if top_level is not None:
             (info / 'top_level.txt').write_text(top_level, encoding='utf-8')
         return metadata.PathDistribution(info)
