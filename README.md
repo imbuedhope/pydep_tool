@@ -48,6 +48,18 @@ Packages must be installed in the Python environment running `pydep` and provide
 metadata. An importable system module without that metadata cannot be assigned a package name
 and version automatically.
 
+The most specific recorded module takes precedence over a parent package. Shared namespace
+roots such as `google` and `azure` do not identify a single distribution: use concrete imports
+such as `from google.cloud import storage` or `from azure.storage.blob import BlobClient`.
+Namespace roots without an owning module, and modules provided by conflicting distributions
+(for example, installing both OpenCV variants), are reported as unresolved. `pydep update`
+leaves dependency files unchanged when any imports are unresolved.
+
+Metadata-only editable installations are supported when they declare their import names in
+`top_level.txt`. Editable installations without usable import metadata, dynamic imports, and
+determining the existence of an attribute through package execution are outside the scanner's
+static analysis. Stub-only `.pyi` files do not supply runtime modules.
+
 ## `pydep update`
 
 Updates any `requriements.txt`, `setup.cfg`, or `pyproject.toml` files found at the specified
@@ -57,8 +69,38 @@ guidelines; however, if the dependencies or install_requires field is missing in
 
 ## Running tests
 
-With this project and its dependencies installed, run from the repository root:
+The fast suite uses the standard library's `unittest` framework and temporary projects with real
+distribution metadata. With this project and its dependencies installed, run from the repository
+root:
 
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+Coverage includes import aliases, relative and wildcard imports, source traversal, stdlib
+boundaries, native module suffixes, shared namespaces, duplicate and missing metadata,
+metadata in ZIP archives, and editable import names. CLI tests exercise every version mode
+and output format, repeat updates to check idempotency, and verify that unresolved or
+ambiguous imports do not change existing dependency files.
+
+For the real-package smoke suite, use a separate virtual environment and install the test-only
+fixtures (these are not application dependencies):
+
+```sh
+python -m venv /tmp/pydep-tests
+. /tmp/pydep-tests/bin/activate
+python -m pip install . -r tests/requirements-integration.txt
+python -I -m unittest discover -s tests/integration -v
+```
+
+This suite checks installed Flask, OpenCV, Pillow, PyYAML, Beautiful Soup, python-dateutil,
+scikit-learn, CFFI, six, Requests alongside its type stubs, and Google/Azure namespace packages.
+It verifies that the libraries import successfully, that scanning does not import them, and
+that the installed `pydep` command generates the expected dependency lists. The `-I` flag
+keeps tests from accidentally loading the repository source instead of the installed package.
+
+GitHub Actions runs on pull requests, pushes to `main`, and manual dispatch. It builds an sdist
+and wheel and tests the installed wheel on Python 3.10–3.14 on Linux, plus Python 3.14 on
+Windows and macOS. A separate Python 3.12 Linux job runs the real-package suite. Direct
+fixture versions are pinned in `tests/requirements-integration.txt`; update them together with
+the smoke tests when checking new library releases.

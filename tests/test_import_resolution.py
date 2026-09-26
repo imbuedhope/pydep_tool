@@ -1,7 +1,4 @@
-from importlib import metadata
 from importlib.machinery import EXTENSION_SUFFIXES
-from pathlib import Path
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -9,32 +6,10 @@ from click.testing import CliRunner
 
 from pydep_tool import pydep
 from pydep_tool._scanner import get_dist, get_imports_from_file
+from support import DistributionTestCase
 
 
-class ImportResolutionTests(unittest.TestCase):
-    def setUp(self):
-        self.clear_cache()
-        self.addCleanup(self.clear_cache)
-        temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
-
-    @staticmethod
-    def clear_cache():
-        get_dist.cache_clear()
-        if hasattr(get_dist, 'mod_to_dist'):
-            del get_dist.mod_to_dist
-
-    def distribution(self, name, files=(), top_level=None):
-        info = self.root / (name + '-1.2.dist-info')
-        info.mkdir()
-        (info / 'METADATA').write_text(f'Name: {name}\nVersion: 1.2\n')
-        if files:
-            (info / 'RECORD').write_text(''.join(f'{file},,\n' for file in files))
-        if top_level is not None:
-            (info / 'top_level.txt').write_text(top_level)
-        return metadata.PathDistribution(info)
-
+class ImportResolutionTests(DistributionTestCase):
     def test_native_cv2_module_without_package_initializer(self):
         for suffix in EXTENSION_SUFFIXES:
             with self.subTest(suffix=suffix):
