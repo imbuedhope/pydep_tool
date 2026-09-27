@@ -125,7 +125,7 @@ def update(path: str, mode: str):
         raise click.ClickException(
             "unable to update because some imports could not be mapped to packages\n"
             "run the `pydep list` for a set of missing imports\n"
-            "this issue is likely because your env (or venv) is missing one or more packages"
+            "check for missing packages or multiple distributions providing the same import"
         )
 
     op = _mode_to_op[mode]
