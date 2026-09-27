@@ -82,8 +82,9 @@ the new list. Optional dependency groups and build-system requirements are outsi
 `setup.cfg` is rewritten using Python's configuration parser, so its comments and formatting may
 also change. Give the diff a look before committing your freshly tidied dependencies.
 
-If any imports are unresolved or have conflicting providers, `update` exits with an error before
-changing dependency files. Run `pydep list` to see which imports need attention.
+If any imports remain unresolved, including providers that cannot be distinguished, `update`
+exits with an error before changing dependency files. Run `pydep list` to see which imports need
+attention.
 
 #### Version modes
 
@@ -149,7 +150,10 @@ A little syntax-tree spelunking, a little package metadata, and no crystal ball:
 5. **Find the owner.** Prefer the most specific recorded module over a parent package.
    `from flask import jsonify` maps through the `flask` package to Flask; `jsonify` does not need
    to be a separate module. Shared namespace roots such as `google` do not claim every sibling
-   package. Conflicting providers of the same module are left unresolved.
+   package. When several distributions claim the same module, use the file selected by Python's
+   standard path finder to identify a unique recorded owner. If wheels overlap on that file,
+   compare their recorded file hashes with the installed package; only a single consistent
+   match is selected. Otherwise, the import remains unresolved.
 6. **Report or write.** Group the results by distribution for `list`, or generate the dependency
    entries for `update` using your chosen version mode.
 
@@ -168,8 +172,9 @@ Start with `pydep list` and check the environment running the command:
   that is importable but has no distribution metadata cannot supply a package name and version.
 - **Shared namespace:** use a concrete import such as `from google.cloud import storage`.
   A bare namespace without an owning module does not identify a distribution.
-- **Conflicting providers:** keep the provider you intend to use. For example, multiple OpenCV
-  distributions can all supply `cv2`, and the scanner will not pick one arbitrarily.
+- **Conflicting providers:** multiple OpenCV distributions can all supply `cv2`. The scanner can
+  identify the installed variant when its recorded paths or hashes distinguish it. If the
+  records do not give enough evidence to choose one, keep only the provider you intend to use.
 - **Editable installation:** usable import metadata is needed; a `top_level.txt` declaration can
   supply names when the source files are absent from the distribution's file list.
 
@@ -177,6 +182,8 @@ Relative imports are skipped, while absolute imports of your own packages go thr
 environment lookup as other absolute imports. Dynamic imports made through `importlib` or
 `__import__`, plugin discovery, and runtime attribute validation are outside this static scan.
 Stub-only `.pyi` files do not provide runtime modules.
+Custom import hooks can override normal path-based lookup; this resolver uses the standard path
+finder and does not inspect those hooks.
 
 ## Development and tests
 

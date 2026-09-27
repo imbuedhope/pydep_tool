@@ -1,4 +1,7 @@
 import configparser
+import base64
+import hashlib
+import sys
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -78,6 +81,35 @@ class CliTests(DistributionTestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn('could not be mapped', result.output)
         self.assertEqual([path.read_bytes() for path in self.files], originals)
+
+    def test_active_overlaid_provider_is_listed_and_written(self):
+        self.prepare_files()
+        self.source.write_text('import pydep_overlay\n', encoding='utf-8')
+        first = self.distribution('first-provider', ['pydep_overlay.py'])
+        active = self.distribution('active-provider', ['pydep_overlay.py'])
+        contents = {first: b'first', active: b'active'}
+        for dist, content in contents.items():
+            digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).decode().rstrip('=')
+            (self.root / f'{dist.name}-1.2.dist-info' / 'RECORD').write_text(
+                f'pydep_overlay.py,sha256={digest},{len(content)}\n')
+        (self.root / 'pydep_overlay.py').write_bytes(contents[active])
+
+        with patch('pydep_tool._scanner.md.distributions', return_value=[first, active]):
+            with patch.object(sys, 'path', [str(self.root), *sys.path]):
+                listed = self.runner.invoke(pydep, ['list', str(self.project)])
+                self.assertEqual(listed.exit_code, 0, listed.output)
+                self.assertIn('active-provider', listed.output)
+                self.assertNotIn('first-provider', listed.output)
+
+                updated = self.runner.invoke(pydep, ['update', str(self.project)])
+                self.assertEqual(updated.exit_code, 0, updated.output)
+                self.assertEqual(self.files[0].read_text(), 'active-provider==1.2\n')
+                config = configparser.ConfigParser()
+                config.read(self.files[1])
+                self.assertEqual(config['options']['install_requires'].split(),
+                                 ['active-provider==1.2'])
+                self.assertEqual(tomlkit.parse(self.files[2].read_text())['project']['dependencies'],
+                                 ['active-provider==1.2'])
 
     def test_syntax_error_leaves_all_formats_unchanged(self):
         self.prepare_files()
